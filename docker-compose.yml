@@ -1,0 +1,156 @@
+# 智能体中台 — 一键启动
+# 用法：cp .env.example .env && docker compose up -d
+
+x-common-env: &common-env
+  env_file: .env
+
+services:
+  # ============== 基础设施 ==============
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agent_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent_pwd}
+    # 移除 5432 端口映射，避免与本地 Postgres 冲突；其它服务通过 docker 网络内 postgres:5432 访问
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agent}"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # 移除 ports 映射，避免与本地 Redis 端口冲突；其它服务通过 docker 网络内的 redis:6379 访问
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      retries: 10
+
+  # ============== 模型网关 ==============
+  model_svc:
+    volumes:
+      - ./packages:/app/packages
+      - ./services/model_svc:/app/services/model_svc
+    networks:
+      default:
+        aliases: ["model-svc"]
+    build:
+      context: .
+      dockerfile: services/model_svc/Dockerfile
+    <<: *common-env
+    ports: ["8005:8005"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  # ============== 工具服务 ==============
+  tool_svc:
+    volumes:
+      - ./packages:/app/packages
+      - ./services/tool_svc:/app/services/tool_svc
+    networks:
+      default:
+        aliases: ["tool-svc"]
+    build:
+      context: .
+      dockerfile: services/tool_svc/Dockerfile
+    <<: *common-env
+    ports: ["8004:8004"]
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  # ============== 知识库服务 ==============
+  knowledge_svc:
+    volumes:
+      - ./packages:/app/packages
+      - ./services/knowledge_svc:/app/services/knowledge_svc
+    networks:
+      default:
+        aliases: ["knowledge-svc"]
+    build:
+      context: .
+      dockerfile: services/knowledge_svc/Dockerfile
+    <<: *common-env
+    ports: ["8003:8003"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      model_svc: {condition: service_started}
+
+  # ============== 智能体运行时 ==============
+  agent_runtime:
+    volumes:
+      - ./packages:/app/packages
+      - ./services/agent_runtime:/app/services/agent_runtime
+    networks:
+      default:
+        aliases: ["agent-runtime"]
+    build:
+      context: .
+      dockerfile: services/agent_runtime/Dockerfile
+    <<: *common-env
+    ports: ["8002:8002"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      model_svc: {condition: service_started}
+      knowledge_svc: {condition: service_started}
+      tool_svc: {condition: service_started}
+
+  # ============== 智能体管理 ==============
+  agent_manager:
+    volumes:
+      - ./packages:/app/packages
+      - ./services/agent_manager:/app/services/agent_manager
+    networks:
+      default:
+        aliases: ["agent-manager"]
+    build:
+      context: .
+      dockerfile: services/agent_manager/Dockerfile
+    <<: *common-env
+    ports: ["8001:8001"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      agent_runtime: {condition: service_started}
+      model_svc: {condition: service_started}
+
+  # ============== API 网关 ==============
+  api_gateway:
+    volumes:
+      - ./packages:/app/packages
+      - ./services/api_gateway:/app/services/api_gateway
+    networks:
+      default:
+        aliases: ["api-gateway"]
+    build:
+      context: .
+      dockerfile: services/api_gateway/Dockerfile
+    <<: *common-env
+    ports: ["8000:8000"]
+    depends_on:
+      agent_runtime: {condition: service_started}
+      agent_manager: {condition: service_started}
+
+  # ============== 管理台（前端，可选） ==============
+  web_console:
+    build:
+      context: ./web/console
+      dockerfile: Dockerfile
+    <<: *common-env
+    ports: ["5173:80"]
+    profiles: ["ui"]   # 默认不启动，需要 UI 时加 --profile ui
+
+volumes:
+  pgdata:

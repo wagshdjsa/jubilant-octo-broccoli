@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "agent-platform"
+version = "0.1.0"
+description = "智能体中台微服务系统"
+authors = ["Agent Platform Team"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.30.0"}
+pydantic = "^2.7.0"
+pydantic-settings = "^2.4.0"
+sqlalchemy = "^2.0.30"
+psycopg2-binary = "^2.9.9"
+alembic = "^1.13.0"
+asyncpg = "^0.29.0"
+redis = "^5.0.4"
+httpx = "^0.27.0"
+aio-pika = "^9.4.0"
+# LangGraph & LangChain
+langgraph = "^0.2.0"
+langgraph-checkpoint-postgres = "^2.0.0"
+langchain = "^0.2.0"
+langchain-openai = "^0.1.0"
+langchain-community = "^0.2.0"
+langsmith = "^0.1.0"
+# pgvector
+pgvector = "^0.3.0"
+# utils
+python-multipart = "^0.0.9"
+orjson = "^3.10.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+tenacity = "^8.5.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-asyncio = "^0.23.0"
+ruff = "^0.5.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+.env
+.env.local
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 数据 / 日志
+*.log
+logs/
+data/
+storage/
+uploads/
+.vite.pid
+
+# 前端
+web/console/node_modules/
+web/console/dist/
+web/console/.next/
+web/console/.env.local
